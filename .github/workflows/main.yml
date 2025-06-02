@@ -16,8 +16,6 @@ jobs:
       - name: Install Dependencies
         run: npm install
       - name: Build Application
-        env:
-          REPOSITORY_PATH: ${{ vars.REPOSITORY_PATH }}
         run: npm run build
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
