@@ -1,5 +1,4 @@
 import { createVertexBuffer, createIndexBuffer } from './buffers';
-import { createTexture } from './textures';
 
 import type { GPUComputeProgramDescriptor, GPURenderProgramDescriptor } from '../types';
 
@@ -73,11 +72,10 @@ export function createComputeProgram(descriptor: GPUComputeProgramDescriptor) {
     function dispatch(
         encoder: GPUCommandEncoder,
         textures: GPUBindingResource[],
-        workSizeX = canvas.width,
-        workSizeY = canvas.height
+        timestampWrites?: GPUComputePassTimestampWrites
     ) {
-        const workgroupCountX = Math.ceil(workSizeX / workgroup.sizeX);
-        const workgroupCountY = Math.ceil(workSizeY / workgroup.sizeY);
+        const workgroupCountX = Math.ceil(canvas.width / workgroup.sizeX);
+        const workgroupCountY = Math.ceil(canvas.height / workgroup.sizeY);
 
         const textureBindGroupEntries = textures.map((resource, binding) => ({
             binding,
@@ -89,7 +87,7 @@ export function createComputeProgram(descriptor: GPUComputeProgramDescriptor) {
             entries: textureBindGroupEntries,
         });
 
-        const computePass = encoder.beginComputePass();
+        const computePass = encoder.beginComputePass({ timestampWrites });
 
         computePass.setPipeline(pipeline);
         computePass.setBindGroup(0, uniformsBindGroup);
@@ -180,7 +178,11 @@ export function createRenderProgram(descriptor: GPURenderProgramDescriptor) {
         ],
     };
 
-    function dispatch(encoder: GPUCommandEncoder, texture: GPUTexture) {
+    function dispatch(
+        encoder: GPUCommandEncoder,
+        texture: GPUTexture,
+        timestampWrites?: GPURenderPassTimestampWrites
+    ) {
         const bindGroup = device.createBindGroup({
             layout: bindGroupLayout,
             entries: [
@@ -200,6 +202,7 @@ export function createRenderProgram(descriptor: GPURenderProgramDescriptor) {
         // Element implicitly has an 'any' type because expression of type '0' can't be used to index type 'Iterable<GPURenderPassColorAttachment>'.
         // @ts-expect-error ^^^
         renderPassDescriptor.colorAttachments[0].view = canvasTextureView;
+        renderPassDescriptor.timestampWrites = timestampWrites;
 
         const renderPass = encoder.beginRenderPass(renderPassDescriptor);
 

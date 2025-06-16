@@ -47,6 +47,10 @@ export function createIndexBuffer(data: BufferData | number, usage = 0, mappedAt
     return createBuffer(data, GPUBufferUsage.INDEX | usage, mappedAtCreation);
 }
 
+export function createQueryResolveBuffer(data: BufferData | number, usage = 0, mappedAtCreation = false) {
+    return createBuffer(data, GPUBufferUsage.QUERY_RESOLVE | usage, mappedAtCreation);
+}
+
 export function writeBuffer(buffer: GPUBuffer, bufferOffset: number, data: BufferData, dataOffset: number) {
     const contentSize = isTypedArray(data) ? data.length : data.byteLength;
 

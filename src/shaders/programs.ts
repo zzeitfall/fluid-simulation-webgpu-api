@@ -403,7 +403,7 @@ export const CLEAR_PROGRAM_SHADER = `
 
         var current_q = textureLoad(q, thread_position);
 
-        textureStore(q, thread_position, .99 * current_q);
+        textureStore(q, thread_position, .999 * current_q);
     }
 `;
 

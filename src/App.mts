@@ -6,6 +6,7 @@ import {
     createComputeProgram,
     createStorageTexture2D,
     createRenderProgram,
+    // createTimestampRecorder,
 } from './core';
 
 import { createRAFLoop, createPointerController } from './dom';
@@ -31,6 +32,9 @@ await initGPU({
     adapter: {
         powerPreference: 'high-performance',
     },
+    device: {
+        requiredFeatures: ['timestamp-query'],
+    },
     canvas: {
         selector: 'canvas',
         alphaMode: 'premultiplied',
@@ -45,8 +49,8 @@ await initGPU({
 const pointerController = createPointerController(gpu.canvas);
 
 const settingsData = createFloat32DataLayout({
-    dt: .005,
-    density: .125,
+    dt: .1,
+    density: .0625,
     vorticity: .0625,
     _padding: 0,
 });
@@ -71,8 +75,8 @@ const pointerUniformBuffer = createUniformBuffer(pointerData.array, GPUBufferUsa
 
 const splatData = createFloat32DataLayout({
     radius: 32,
-    intensity: .0625,
-    force: 32,
+    intensity: .025,
+    force: 2,
 });
 const splatUniformBuffer = createUniformBuffer(splatData.array, GPUBufferUsage.COPY_DST);
 
@@ -190,6 +194,10 @@ const clearProgram = createComputeProgram({
 
 const renderProgram = createRenderProgram({ shader: RENDER_PROGRAM_SHADER });
 
+// `110` represents number of compute programs per simulation cycle
+// const timestampRecorder = createTimestampRecorder(110, 2);
+// const gpuTimes: number[] = [];
+
 pointerController.on('pointermove', (event) => {
     const {
         offsetX,
@@ -219,7 +227,7 @@ createRAFLoop(() => {
         u0.createView(),
         v0.createView(),
         dye0.createView(),
-    ]);
+    ] /*, timestampRecorder.capture() */);
 
     // Advect U
     advectionProgram.dispatch(commandEncoder, [
@@ -227,7 +235,7 @@ createRAFLoop(() => {
         v0.createView(),
         u0.createView(),
         u1.createView(),
-    ]);
+    ] /*, timestampRecorder.capture() */);
 
     // Advect V
     advectionProgram.dispatch(commandEncoder, [
@@ -235,7 +243,7 @@ createRAFLoop(() => {
         v0.createView(),
         v0.createView(),
         v1.createView(),
-    ]);
+    ] /*, timestampRecorder.capture() */);
 
     temp = u0;
     u0 = u1;
@@ -251,7 +259,7 @@ createRAFLoop(() => {
         v0.createView(),
         div.createView(),
         p0.createView(), // Clear pressure for the Jacobi iteration method
-    ]);
+    ] /*, timestampRecorder.capture() */);
 
     // Calculare Pressure
     for (let i = 0; i < 100; i++) {
@@ -259,7 +267,7 @@ createRAFLoop(() => {
             div.createView(),
             p0.createView(),
             p1.createView(),
-        ]);
+        ] /*, timestampRecorder.capture() */);
 
         temp = p0;
         p0 = p1;
@@ -271,21 +279,21 @@ createRAFLoop(() => {
         p0.createView(),
         u0.createView(),
         v0.createView(),
-    ]);
+    ] /*, timestampRecorder.capture() */);
 
     // Calculate Vortices
     calculateVorticesProgram.dispatch(commandEncoder, [
         u0.createView(),
         v0.createView(),
         vor.createView(),
-    ]);
+    ] /*, timestampRecorder.capture() */);
 
     // Apply Vorticity
     applyVorticityProgram.dispatch(commandEncoder, [
         vor.createView(),
         u0.createView(),
         v0.createView(),
-    ]);
+    ] /*, timestampRecorder.capture() */);
 
     // Advect Dye
     advectionProgram.dispatch(commandEncoder, [
@@ -293,19 +301,38 @@ createRAFLoop(() => {
         v0.createView(),
         dye0.createView(),
         dye1.createView(),
-    ]);
+    ] /*, timestampRecorder.capture() */);
 
     temp = dye0;
     dye0 = dye1;
     dye1 = temp;
 
     // Clear Dye
-    clearProgram.dispatch(commandEncoder, [dye0.createView()]);
+    clearProgram.dispatch(commandEncoder, [dye0.createView()] /*, timestampRecorder.capture() */);
 
     // Render Dye
-    renderProgram.dispatch(commandEncoder, dye0);
+    renderProgram.dispatch(commandEncoder, dye0 /*, timestampRecorder.capture() */);
+
+    // timestampRecorder.resolve(commandEncoder);
 
     const commandBuffer = commandEncoder.finish();
 
     gpu.device.queue.submit([commandBuffer]);
+
+    // timestampRecorder.finish().then((timestamps) => {
+    //     if (!timestamps) {
+    //         return;
+    //     }
+
+    //     let gpuTime = 0;
+
+    //     for (let i = 0; i < timestamps.length; i += timestampRecorder.stride) {
+    //         const start = timestamps[i];
+    //         const end = timestamps[i + 1];
+
+    //         gpuTime += Number(end - start);
+    //     }
+
+    //     gpuTimes.unshift(gpuTime / 1000);
+    // });
 });
